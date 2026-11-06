@@ -1,0 +1,69 @@
+# Copy to gateway.toml and edit. Run with: gateway serve --config gateway.toml
+
+[server]
+db_path = "gateway.db"   # keys, usage log and cache entries (SQLite)
+
+[cache]
+enabled = true
+semantic = true          # match paraphrased questions, not just byte-identical requests
+threshold = 0.94         # cosine similarity; see eval/results/cache.md for how this was chosen
+guard = true             # lexical check that blocks near-miss hits (direction swaps, changed numbers, swapped words)
+ttl_seconds = 86400
+max_entries = 50000
+max_temperature = 0.0    # only cache deterministic requests; `x-gateway-cache: force` overrides
+embed_model = "BAAI/bge-small-en-v1.5"
+
+[routing]
+window = 20              # circuit breaker: recent calls per target it looks at
+min_calls = 10           # ...needs at least this many before judging
+failure_rate = 0.8       # ...opens when this share of the window failed (timeouts, 429s, 5xx)
+cooldown_seconds = 30    # open circuit -> one half-open probe after this long
+breaker_enabled = true
+
+[limits]                 # defaults for new API keys
+default_rpm = 60
+default_tpm = 100000
+
+# --- providers ---------------------------------------------------------------------------------
+# type = "openai" works for anything OpenAI-compatible: OpenAI, Ollama, vLLM, Groq, OpenRouter, ...
+# A provider whose api_key_env is unset is skipped by the router rather than failing every request.
+
+[providers.ollama]
+type = "openai"
+base_url = "http://localhost:11434/v1"
+timeout = 300
+
+[providers.anthropic]
+type = "anthropic"
+api_key_env = "ANTHROPIC_API_KEY"
+timeout = 120
+
+[providers.openai]
+type = "openai"
+base_url = "https://api.openai.com/v1"
+api_key_env = "OPENAI_API_KEY"
+
+# --- model aliases: clients ask for the alias, the gateway tries targets in order -----------------
+
+[[models]]
+name = "fast"
+targets = [
+  { provider = "ollama", model = "llama3.2:3b" },
+  { provider = "anthropic", model = "claude-haiku-5-5" },
+]
+
+[[models]]
+name = "smart"
+targets = [
+  { provider = "anthropic", model = "claude-sonnet-5-5" },
+  { provider = "openai", model = "gpt-4.1" },
+  { provider = "ollama", model = "qwen3:4b-instruct" },
+]
+
+# Any upstream model can also be addressed directly as "<provider>/<model>", e.g. "ollama/gemma3:4b".
+
+# --- prices: USD per 1M tokens [input, output], keyed by "<provider>/<model>" ----------------------
+# Fill these in from each provider's current pricing page. Unlisted targets (e.g. local Ollama) cost 0.
+[prices]
+# "anthropic/claude-haiku-5-5" = [<input>, <output>]
+# "anthropic/claude-sonnet-5-5" = [<input>, <output>]

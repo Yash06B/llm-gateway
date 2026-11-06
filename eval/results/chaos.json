@@ -1,0 +1,122 @@
+{
+  "config": {
+    "duration": 20.0,
+    "procs": 2,
+    "concurrency": 8,
+    "out": "C:\\Users\\Yash\\OneDrive\\Desktop\\llm-gateway\\eval\\results\\chaos.json"
+  },
+  "flaky_no_fallback": {
+    "requests": 4788,
+    "ok": 3349,
+    "rps": 167.4,
+    "latency_ms": {
+      "p50": 65.45,
+      "p95": 80.57,
+      "p99": 84.03
+    },
+    "statuses": {
+      "200": 3349,
+      "502": 1439
+    },
+    "cache": {
+      "None": 3349
+    },
+    "latency_by_cache": {
+      "None": {
+        "p50": 65.45,
+        "p95": 80.57,
+        "p99": 84.03
+      }
+    },
+    "targets": {
+      "primary/p": 3349
+    },
+    "wall_s": 20.5,
+    "success_rate": 0.6995
+  },
+  "flaky_with_fallback": {
+    "requests": 4019,
+    "ok": 4019,
+    "rps": 200.9,
+    "latency_ms": {
+      "p50": 66.79,
+      "p95": 132.64,
+      "p99": 142.95
+    },
+    "statuses": {
+      "200": 4019
+    },
+    "cache": {
+      "None": 4019
+    },
+    "latency_by_cache": {
+      "None": {
+        "p50": 66.79,
+        "p95": 132.64,
+        "p99": 142.95
+      }
+    },
+    "targets": {
+      "backup/b": 1207,
+      "primary/p": 2812
+    },
+    "wall_s": 20.5,
+    "success_rate": 1.0
+  },
+  "down_fallback_no_breaker": {
+    "requests": 304,
+    "ok": 304,
+    "rps": 15.2,
+    "latency_ms": {
+      "p50": 1084.13,
+      "p95": 1110.62,
+      "p99": 1114.66
+    },
+    "statuses": {
+      "200": 304
+    },
+    "cache": {
+      "None": 304
+    },
+    "latency_by_cache": {
+      "None": {
+        "p50": 1084.13,
+        "p95": 1110.62,
+        "p99": 1114.66
+      }
+    },
+    "targets": {
+      "backup/b": 304
+    },
+    "wall_s": 21.0,
+    "success_rate": 1.0
+  },
+  "down_fallback_with_breaker": {
+    "requests": 4396,
+    "ok": 4396,
+    "rps": 219.8,
+    "latency_ms": {
+      "p50": 70.76,
+      "p95": 82.0,
+      "p99": 86.47
+    },
+    "statuses": {
+      "200": 4396
+    },
+    "cache": {
+      "None": 4396
+    },
+    "latency_by_cache": {
+      "None": {
+        "p50": 70.76,
+        "p95": 82.0,
+        "p99": 86.47
+      }
+    },
+    "targets": {
+      "backup/b": 4396
+    },
+    "wall_s": 20.5,
+    "success_rate": 1.0
+  }
+}

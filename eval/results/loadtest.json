@@ -1,0 +1,165 @@
+{
+  "config": {
+    "duration": 20.0,
+    "procs": 4,
+    "concurrency": 16,
+    "upstream_latency_ms": 50,
+    "out": "C:\\Users\\Yash\\OneDrive\\Desktop\\llm-gateway\\eval\\results\\loadtest.json",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "python": "3.12.10",
+    "time": "2026-11-06 22:36"
+  },
+  "direct": {
+    "requests": 17060,
+    "ok": 17060,
+    "rps": 853.0,
+    "latency_ms": {
+      "p50": 75.86,
+      "p95": 94.39,
+      "p99": 102.02
+    },
+    "statuses": {
+      "200": 17060
+    },
+    "cache": {
+      "None": 17060
+    },
+    "latency_by_cache": {
+      "None": {
+        "p50": 75.86,
+        "p95": 94.39,
+        "p99": 102.02
+      }
+    },
+    "targets": {
+      "None": 17060
+    },
+    "wall_s": 20.5
+  },
+  "gateway_no_cache": {
+    "requests": 15633,
+    "ok": 15633,
+    "rps": 781.6,
+    "latency_ms": {
+      "p50": 80.85,
+      "p95": 107.37,
+      "p99": 127.21
+    },
+    "statuses": {
+      "200": 15633
+    },
+    "cache": {
+      "None": 15633
+    },
+    "latency_by_cache": {
+      "None": {
+        "p50": 80.85,
+        "p95": 107.37,
+        "p99": 127.21
+      }
+    },
+    "targets": {
+      "mock/mock-model": 15633
+    },
+    "wall_s": 20.6
+  },
+  "gateway_cache_miss": {
+    "requests": 6084,
+    "ok": 6084,
+    "rps": 304.2,
+    "latency_ms": {
+      "p50": 210.92,
+      "p95": 248.48,
+      "p99": 271.07
+    },
+    "statuses": {
+      "200": 6084
+    },
+    "cache": {
+      "miss": 6084
+    },
+    "latency_by_cache": {
+      "miss": {
+        "p50": 210.92,
+        "p95": 248.48,
+        "p99": 271.07
+      }
+    },
+    "targets": {
+      "mock/mock-model": 6084
+    },
+    "wall_s": 20.7
+  },
+  "gateway_exact_hit": {
+    "requests": 46556,
+    "ok": 46556,
+    "rps": 2327.8,
+    "latency_ms": {
+      "p50": 27.81,
+      "p95": 33.45,
+      "p99": 36.89
+    },
+    "statuses": {
+      "200": 46556
+    },
+    "cache": {
+      "exact": 46556
+    },
+    "latency_by_cache": {
+      "exact": {
+        "p50": 27.81,
+        "p95": 33.45,
+        "p99": 36.89
+      }
+    },
+    "targets": {
+      "None": 46556
+    },
+    "wall_s": 20.6
+  },
+  "gateway_semantic_hit": {
+    "requests": 11568,
+    "ok": 11568,
+    "rps": 578.4,
+    "latency_ms": {
+      "p50": 154.9,
+      "p95": 175.72,
+      "p99": 203.31
+    },
+    "statuses": {
+      "200": 11568
+    },
+    "cache": {
+      "exact": 3683,
+      "miss": 44,
+      "semantic": 7841
+    },
+    "latency_by_cache": {
+      "exact": {
+        "p50": 4.13,
+        "p95": 6.89,
+        "p99": 9.63
+      },
+      "miss": {
+        "p50": 206.85,
+        "p95": 242.75,
+        "p99": 247.4
+      },
+      "semantic": {
+        "p50": 159.84,
+        "p95": 182.07,
+        "p99": 206.3
+      }
+    },
+    "targets": {
+      "None": 11524,
+      "mock/mock-model": 44
+    },
+    "wall_s": 20.6
+  },
+  "overhead_ms": {
+    "p50": 4.99,
+    "p95": 12.98,
+    "p99": 25.19
+  }
+}

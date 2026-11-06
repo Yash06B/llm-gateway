@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LLM Gateway</title>
+<style>
+  :root {
+    --bg: #f7f7f5; --panel: #ffffff; --text: #1d1d1b; --muted: #6b6b66; --line: #e4e4df;
+    --accent: #2f6fdb; --hit: #2e9e6a; --err: #d04a3a; --warn: #c98a12;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #141413; --panel: #1e1e1c; --text: #ececea; --muted: #9a9a94; --line: #2f2f2c;
+            --accent: #6d9bf0; --hit: #4cc08a; --err: #ef7464; --warn: #e2ad47; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 14px/1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 48px; }
+  header { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
+  h1 { font-size: 20px; margin: 0; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 28px 0 10px; }
+  .status { color: var(--muted); font-size: 13px; }
+  input, button { font: inherit; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--line);
+                  background: var(--panel); color: var(--text); }
+  button { cursor: pointer; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
+  .tile { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  .tile .label { color: var(--muted); font-size: 12px; }
+  .tile .value { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .tile .sub { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { color: var(--muted); font-weight: 500; font-size: 12px; }
+  td.num, th.num { text-align: right; }
+  .pill { padding: 1px 8px; border-radius: 99px; font-size: 12px; border: 1px solid currentColor; }
+  .closed { color: var(--hit); } .open { color: var(--err); } .half_open { color: var(--warn); }
+  .legend { display: flex; gap: 14px; color: var(--muted); font-size: 12px; margin-top: 6px; }
+  .sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+  svg text { fill: var(--muted); font-size: 11px; }
+  .empty { color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>LLM Gateway</h1>
+    <form id="auth" style="display:flex;gap:8px">
+      <input id="key" type="password" placeholder="Admin key" autocomplete="off" size="28">
+      <button>Connect</button>
+    </form>
+  </header>
+  <p class="status" id="status">Enter the admin key (GATEWAY_ADMIN_KEY) to load stats.</p>
+
+  <h2>Last 5 minutes</h2>
+  <div class="tiles" id="tiles"></div>
+
+  <h2>Traffic</h2>
+  <div class="panel">
+    <svg id="chart" width="100%" height="160" role="img" aria-label="Requests per interval"></svg>
+    <div class="legend">
+      <span><span class="sw" style="background:var(--accent)"></span>upstream</span>
+      <span><span class="sw" style="background:var(--hit)"></span>cache hit</span>
+      <span><span class="sw" style="background:var(--err)"></span>error</span>
+    </div>
+  </div>
+
+  <h2>Upstream targets</h2>
+  <div class="panel"><table id="targets"></table></div>
+
+  <h2>Circuit breakers</h2>
+  <div class="panel"><table id="breakers"></table></div>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+let key = "";
+try { key = sessionStorage.getItem("gw-admin") || ""; } catch (e) {}
+$("key").value = key;
+
+$("auth").addEventListener("submit", (e) => {
+  e.preventDefault();
+  key = $("key").value.trim();
+  try { sessionStorage.setItem("gw-admin", key); } catch (e) {}
+  refresh();
+});
+
+const fmt = (v, d = 0) => v == null ? "–" : Number(v).toLocaleString(undefined, { maximumFractionDigits: d, minimumFractionDigits: d });
+const ms = (v) => v == null ? "–" : v >= 1000 ? fmt(v / 1000, 2) + " s" : fmt(v, v < 10 ? 1 : 0) + " ms";
+const usd = (v) => "$" + fmt(v, v < 1 ? 4 : 2);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+function tile(label, value, sub = "") {
+  return `<div class="tile"><div class="label">${label}</div><div class="value">${value}</div><div class="sub">${sub}</div></div>`;
+}
+
+function render(s) {
+  const L = s.latency_ms;
+  $("tiles").innerHTML = [
+    tile("Requests", fmt(s.requests), `${fmt(s.rps_1m, 2)} req/s (last min)`),
+    tile("Cache hit rate", fmt(s.cache_hit_rate * 100, 1) + "%", `${s.cache_hits.exact} exact · ${s.cache_hits.semantic} semantic`),
+    tile("Latency, upstream", ms(L.miss.p50), `p95 ${ms(L.miss.p95)}`),
+    tile("Latency, cache hit", ms(L.hit.p50), `p95 ${ms(L.hit.p95)}`),
+    tile("Gateway overhead", ms(L.overhead.p50), `p95 ${ms(L.overhead.p95)} · p99 ${ms(L.overhead.p99)}`),
+    tile("Error rate", fmt(s.error_rate * 100, 2) + "%", `${s.totals.fallbacks} fallbacks · ${s.totals.rate_limited} rate-limited`),
+    tile("Spend (all time)", usd(s.totals.cost_usd), `saved ${usd(s.totals.saved_usd)} by cache`),
+  ].join("");
+
+  const svg = $("chart"), W = svg.clientWidth || 800, H = 160, pad = 22;
+  const series = s.series, max = Math.max(1, ...series.map((b) => b.requests));
+  const bw = (W - pad) / series.length;
+  let out = `<text x="0" y="12">${max}</text><text x="0" y="${H - 4}">0</text>`;
+  series.forEach((b, i) => {
+    const x = pad + i * bw + 1, w = Math.max(1, bw - 2), sc = (H - 20) / max;
+    const errH = b.errors * sc, hitH = b.hits * sc, upH = (b.requests - b.hits - b.errors) * sc;
+    let y = H - 4;
+    for (const [h, c] of [[upH, "var(--accent)"], [hitH, "var(--hit)"], [errH, "var(--err)"]]) {
+      if (h > 0) { y -= h; out += `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${c}" rx="1"><title>${b.requests} req</title></rect>`; }
+    }
+  });
+  svg.innerHTML = out;
+
+  const targets = Object.entries(s.targets);
+  $("targets").innerHTML = targets.length
+    ? `<tr><th>Target</th><th class="num">Requests</th><th class="num">p50</th><th class="num">p95</th><th class="num">p99</th></tr>` +
+      targets.map(([t, v]) => `<tr><td>${esc(t)}</td><td class="num">${fmt(v.requests)}</td><td class="num">${ms(v.p50)}</td><td class="num">${ms(v.p95)}</td><td class="num">${ms(v.p99)}</td></tr>`).join("")
+    : `<tr><td class="empty">No upstream calls in this window.</td></tr>`;
+
+  const br = Object.entries(s.breakers);
+  $("breakers").innerHTML = br.length
+    ? `<tr><th>Target</th><th>State</th><th class="num">Recent failures (of 20)</th><th class="num">Probe in</th></tr>` +
+      br.map(([t, b]) => `<tr><td>${esc(t)}</td><td><span class="pill ${b.state}">${b.state.replace("_", "-")}</span></td><td class="num">${b.failures}</td><td class="num">${b.state === "open" ? fmt(b.retry_after_s, 1) + " s" : "–"}</td></tr>`).join("")
+    : `<tr><td class="empty">No targets called yet.</td></tr>`;
+}
+
+async function refresh() {
+  if (!key) return;
+  try {
+    const r = await fetch("/admin/stats", { headers: { Authorization: "Bearer " + key } });
+    if (r.status === 401) { $("status").textContent = "Admin key rejected."; return; }
+    const s = await r.json();
+    render(s);
+    const c = s.cache.enabled === false ? "cache off" : `${fmt(s.cache.entries)} cached responses, threshold ${s.cache.threshold}`;
+    $("status").textContent = `Up ${fmt(s.uptime_s / 60, 0)} min · ${c} · updated ${new Date().toLocaleTimeString()}`;
+  } catch (e) {
+    $("status").textContent = "Gateway unreachable: " + e.message;
+  }
+}
+setInterval(refresh, 2000);
+refresh();
+</script>
+</body>
+</html>
